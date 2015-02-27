@@ -1,17 +1,44 @@
 <?php
-	class database extends SQLite3
+	class database extends dbSqlite
 	{
-		private $configData = NULL; // only if default (plexWatchWeb db)
-		private $status = false;
+		private $configData = NULL;
+		private $databaseStructure = array(
+			'config' => "CREATE TABLE config (
+					id      INTEGER         PRIMARY KEY AUTOINCREMENT,
+					[key]   VARCHAR( 50 )   NOT NULL UNIQUE ON CONFLICT ROLLBACK,
+					value   VARCHAR( 255 ),
+					section VARCHAR( 50 )   NOT NULL 
+				);
+				INSERT INTO config (key, value, section) VALUES ('host', '', 'deluge');
+				INSERT INTO config (key, value, section) VALUES ('password', '', 'deluge');",
+			'torrent' => "CREATE TABLE configTest (
+					hashkey     TEXT    PRIMARY KEY,
+					name        TEXT,
+					timeAdded   INTEGER,
+					totalSize   REAL,
+					trackerHost TEXT 
+				);",
+			'torrentData' => "CREATE TABLE torrentData (
+					torrentDataId       INTEGER PRIMARY KEY AUTOINCREMENT,
+					hashkey             TEXT    REFERENCES torrent ( hashkey ),
+					timeData            INTEGER,
+					totalUploaded       REAL,
+					ratio               NUMERIC,
+					label               TEXT,
+					progress            INT     DEFAULT ( 0 ),
+					downloadPayloadRate REAL    DEFAULT ( 0 ),
+					uploadPayloadRate   REAL    DEFAULT ( 0 ) 
+				);"
+		);
+		
 		function __construct($filename)
 		{
 			parent::__construct($filename);
 			/**
 			 * @todo : Rajouter vérification existance et conformité bd, sinon création
 			 */
-			$this->status = true;
-			// Chargement des données config par défaut
-			$this->loadConfigData();			 
+			$this->verifyStructure();
+			$this->loadConfigData();
 		}
 		
 		public function readStats($hashkey){
@@ -42,10 +69,6 @@
 				for($i=0; $i<count($data); $i++){
 					if($i<(count($data)-1)){
 						$data[$i]['lastDataDiff_uploaded'] = $data[$i]['totalUploaded'] - $data[$i+1]['totalUploaded'];
-						
-						//$ts = $data[$i]['timeData']; $currentDate = new DateTime("@$ts");
-						//$ts = $data[$i+1]['timeData']; $lastDate = new DateTime("@$ts");
-						//$dDiff = $currentDate->diff($lastDate);
 						$date1 = $data[$i]['timeDataPHP'];
 						$date2 = $data[$i+1]['timeDataPHP'];
 						$dDiff = $date1->diff($date2);
@@ -57,7 +80,6 @@
 					unset($data[$i]['timeDataPHP']);
 					
 				}
-				//$data[] = $i;
 				
 				$result = $stmt->close();
 				return $data;
@@ -75,7 +97,6 @@
 				$maxTimeData = $tmp['maxTimeData'];
 				$stmt->close();
 				
-				// n'afficher que les torrents qui ont eu des données lors du dernier ajout (date la + récente)'
 				$sql = "SELECT T.*
 					FROM torrent T
 						INNER JOIN torrentData TD ON TD.hashkey=T.hashkey AND TD.timeData = :maxTimeData
@@ -124,7 +145,6 @@
 							$stmt->bindValue(':timeAdded', $torrentData->time_added, SQLITE3_INTEGER );
 							$stmt->bindValue(':totalSize', $torrentData->total_size );
 							$stmt->bindValue(':trackerHost', $torrentData->tracker_host, SQLITE3_TEXT);
-							//$stmt->bindValue(':savePath', $row->savePath, SQLITE3_TEXT);
 
 							$result = $stmt->execute();
 							$result = $stmt->close();
@@ -199,8 +219,20 @@
 			}
 			return false;
 		}
+		private function verifyStructure(){
+			$creation = 0;
+			if(is_array($this->databaseStructure)){
+				foreach($this->databaseStructure as $tableName => $SQL){
+					$creation += ($this->createTable($tableName,$SQL)==true);
+				}
+			}
+			if($creation>0){
+				$this->loadTableDefinitions();
+			}
+		}
+	
 		public function loadConfigData(){
-			// TODO : remplir les données ...
+			
 			if($this->status===true){
 				$this->configData = array();
 				$stmt = $this->prepare("SELECT * FROM config;");
@@ -216,7 +248,7 @@
 				$this->configData = (object) $this->configData;
 			}
 		}
-		//TODO : faire le get.. pour renvoyer les données
+		
 		public function getConfigData($section=NULL, $key=NULL){
 			if(empty($section) || empty($key)){
 				return $this->configData;
@@ -228,6 +260,10 @@
 				}
 			}
 			return NULL;
+		}
+		
+		public function test1(){
+			return method_exists($this,'loadTableDefinitions');
 		}
 	}
 ?>

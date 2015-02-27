@@ -27,6 +27,7 @@
 			}
 			if($valid){ $this->database = $database; }
 		}
+		
 		public function authentication(){
 			if($this->database){
 				$host = $this->database->getConfigData('deluge','host');

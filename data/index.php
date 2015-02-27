@@ -1,5 +1,7 @@
 <?php
 
+
+	require_once("./includes/dbSqlite.class.php");
 	require_once("./includes/database.class.php");
 	require_once("./includes/deluge.class.php");
 	
