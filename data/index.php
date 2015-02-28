@@ -1,6 +1,6 @@
 <?php
 
-
+	require_once("./includes/exceptions.class.php");
 	require_once("./includes/dbSqlite.class.php");
 	require_once("./includes/database.class.php");
 	require_once("./includes/deluge.class.php");
@@ -25,12 +25,17 @@
 	
 	$error="";
 	
-	$db = new database('delugeWatchWeb.db');
-	$deluge = new deluge($db);
+	$exceptions = new exceptions(array('error','warning','info'),'error');
+	if(!class_exists('SQLite3')){ $exceptions->add('missingSQLite3','error','php5-sqlite is not installed/activated. Please install/activate this requirement and restart your webserver before continuing.'); }
+	if(!function_exists('curl_version')){ $exceptions->add('missingCurl','error','php-curl is not install/activated. Please install/activate this requirement and restart your webserver before continuing.'); }
 	
-	$updated = $deluge->syncData();
-	$rows = $db->readTorrent($db->getBooleanForm(false));
-	
+	if($exceptions->getCount()==0){
+		$db = new database('delugeWatchWeb.db');
+		$deluge = new deluge($db, $exceptions);
+		
+		$updated = $deluge->syncData();
+		$rows = $db->readTorrent($db->getBooleanForm(false));
+	}
 	//if($valid) {
 	
 		/*$formData = file_get_contents('php://input');
@@ -103,17 +108,18 @@
 			'key: ' => $test3[$key]
 		);*/
 		
-		$return = array(
-			"success" => empty($error),
-			"message" => $error,
-			"totalUpdated" => $updated,
-			"rows" => $rows
-		);
-	
-		header('Cache-Control: no-cache, must-revalidate');
-		header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
-		header('Content-type: application/json');
-		echo json_encode($return);
+	$return = array(
+		"success" => empty($error),
+		"message" => $error,
+		"totalUpdated" => $updated,
+		"rows" => $rows,
+		"exceptions" => $exceptions->getSummary()
+	);
+
+	header('Cache-Control: no-cache, must-revalidate');
+	header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+	header('Content-type: application/json');
+	echo json_encode($return);
 	//}	
 	
 ?>

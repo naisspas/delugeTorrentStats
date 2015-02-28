@@ -1,5 +1,9 @@
 <?php
-
+/**
+ * dbSqlite : extension of SQLite library with advanced features
+ *
+ * @author Philippe Hamel <naisspas@hotmail.ca>
+ */
 class dbSqlite extends SQLite3 {
 	protected $status = false;
 	private $tablesDefinition = array();
