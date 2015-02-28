@@ -1,41 +1,121 @@
 <?php
 
+	require_once("./includes/request.class.php");
 	require_once("./includes/exceptions.class.php");
 	require_once("./includes/dbSqlite.class.php");
 	require_once("./includes/database.class.php");
 	require_once("./includes/deluge.class.php");
-	
-	$type = isset($_GET['type']) ? $_GET['type'] : NULL;
-	$action = isset($_GET['action']) ? $_GET['action'] : NULL;
-	
-	$valid = false;
-	switch($type){
-		case "newData":
-		case "stats":
-			$valid=true;
-			break;
-	}
-	switch($action){
-		case "create":
-		case "read":
-			$valid=true;
-			break;
-	}
-	$rows = array();
-	
-	$error="";
-	
+
 	$exceptions = new exceptions(array('error','warning','info'),'error');
 	if(!class_exists('SQLite3')){ $exceptions->add('missingSQLite3','error','php5-sqlite is not installed/activated. Please install/activate this requirement and restart your webserver before continuing.'); }
 	if(!function_exists('curl_version')){ $exceptions->add('missingCurl','error','php-curl is not install/activated. Please install/activate this requirement and restart your webserver before continuing.'); }
+
+	$routing = array(
+		'GET' => array(
+			array(
+				'parameter' => 'type',
+				'value'		=> 'delugeAPI',
+				'next'		=> array(
+					array(
+						'parameter' => 'action',
+						'value' 	=> 'getList'
+					)
+				)
+			)
+		),
+		'POST' => array(
+			array(
+				'parameter' => 'type',
+				'value' 	=> 'config',
+				'next'		=> array(
+					array(
+						'parameter' => 'action',
+						'value'		=> 'update',
+						'presence'	=> array('host','password')
+					)
+				)
+			),
+			array(
+				'parameter' => 'type',
+				'value' 	=> 'torrent',
+				'next'		=> array(
+					array(
+						'parameter' => 'action',
+						'value'		=> 'list',
+						'presence'	=> array('onlyActive')
+					)
+				)
+			)			
+		)	
+	);
+	$request = new request(
+		array('POST','GET'),
+		$routing
+	);
+	
+	
+	/*$type = $request->get('type');
+	$action = $request->get('action');
+
+	
+	$validParameters = false;
+	switch($type){
+		case "config":
+		case "delugeAPI":
+		case "torrent":
+		case "torrentData":
+			break;
+		default:
+			$exceptions->add('unknownType','error');
+			break;
+	}
+	if($exceptions->getCount()==0){
+		switch($action){
+			case "getList":
+			case "read":
+			case "update":
+			case "create":
+			case "destroy":
+				break;
+			default:
+				$exceptions->add('unknownAction','error');
+				break;
+		}
+	}*/
+	
+
+	//$outputData['routing'] = $request->getRouting();
+	$outputData = array(
+		"success" => true,
+		"exceptions" => NULL
+	);
+	$forward = $request->findForward();
+	if(!$forward->found){
+		$exceptions->add('wrongParameters','error');
+	}
 	
 	if($exceptions->getCount()==0){
 		$db = new database('delugeWatchWeb.db');
 		$deluge = new deluge($db, $exceptions);
 		
-		$updated = $deluge->syncData();
-		$rows = $db->readTorrent($db->getBooleanForm(false));
+		//$updated = $deluge->syncData();
+		//$rows = $db->readTorrent($db->getBooleanForm(false));
+		
+		
+		
+		$call = NULL;
+		switch($forward->path){
+			case 'delugeAPI:getList': 
+				$outputData['updated'] = $deluge->syncData();
+				break;
+			case 'torrent:list': 
+				$outputData['rows'] = $db->readTorrent($db->getBooleanForm($request->get('onlyActive')));;
+				break;
+		}
+
 	}
+	$outputData ["success"] = $exceptions->getCount()==0;
+	$outputData ["exceptions"] = $exceptions->getSummary();
 	//if($valid) {
 	
 		/*$formData = file_get_contents('php://input');
@@ -107,19 +187,11 @@
 			'key ?' => array_key_exists($key,$config->$section),
 			'key: ' => $test3[$key]
 		);*/
-		
-	$return = array(
-		"success" => empty($error),
-		"message" => $error,
-		"totalUpdated" => $updated,
-		"rows" => $rows,
-		"exceptions" => $exceptions->getSummary()
-	);
 
 	header('Cache-Control: no-cache, must-revalidate');
 	header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
 	header('Content-type: application/json');
-	echo json_encode($return);
+	echo json_encode($outputData);
 	//}	
 	
 ?>
