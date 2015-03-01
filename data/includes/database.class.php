@@ -263,5 +263,20 @@ class database extends dbSqlite
 		}
 		return NULL;
 	}
+	public function updateConfig($section=NULL, $key=NULL, $value=NULL){
+		if(!empty($section) && !empty($key)){
+			if(property_exists($this->configData, $section)){
+				if(array_key_exists($key,$this->configData->$section)){
+
+					$config = array(
+						'tableName' => 'config',
+						'values' => array('value' => $value),
+						'where' => array('key' => $key,'section' => $section)
+					);
+					$this->set($config);
+				}
+			}		
+		}
+	}
 }
 ?>

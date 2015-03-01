@@ -53,38 +53,6 @@
 		$routing
 	);
 	
-	
-	/*$type = $request->get('type');
-	$action = $request->get('action');
-
-	
-	$validParameters = false;
-	switch($type){
-		case "config":
-		case "delugeAPI":
-		case "torrent":
-		case "torrentData":
-			break;
-		default:
-			$exceptions->add('unknownType','error');
-			break;
-	}
-	if($exceptions->getCount()==0){
-		switch($action){
-			case "getList":
-			case "read":
-			case "update":
-			case "create":
-			case "destroy":
-				break;
-			default:
-				$exceptions->add('unknownAction','error');
-				break;
-		}
-	}*/
-	
-
-	//$outputData['routing'] = $request->getRouting();
 	$outputData = array(
 		"success" => true,
 		"exceptions" => NULL
@@ -97,13 +65,7 @@
 	if($exceptions->getCount()==0){
 		$db = new database('delugeWatchWeb.db');
 		$deluge = new deluge($db, $exceptions);
-		
-		//$updated = $deluge->syncData();
-		//$rows = $db->readTorrent($db->getBooleanForm(false));
-		
-		
-		
-		$call = NULL;
+
 		switch($forward->path){
 			case 'delugeAPI:getList': 
 				$outputData['updated'] = $deluge->syncData();
@@ -111,87 +73,22 @@
 			case 'torrent:list': 
 				$outputData['rows'] = $db->readTorrent($db->getBooleanForm($request->get('onlyActive')));;
 				break;
+			case 'config:update':
+				$host = $request->get('host');
+				if(!is_object($host)){ $db->updateConfig('deluge','host',$host); }
+				$password = $request->get('password');
+				if(!is_object($password)){ $db->updateConfig('deluge','password',$password); }
+				break;
 		}
 
 	}
 	$outputData ["success"] = $exceptions->getCount()==0;
 	$outputData ["exceptions"] = $exceptions->getSummary();
-	//if($valid) {
-	
-		/*$formData = file_get_contents('php://input');
-		$jsonData = json_decode($formData);
-		$db = new database();
-		$error="";
-		if(is_object($jsonData)) {
-			$timeData = isset($_GET['timeData']) ? $_GET['timeData'] : NULL;
-			if(!empty($timeData)) {
-				$currentTime = new DateTime($timeData);
-			}
-			else { $currentTime = new DateTime(); }
-			//$rows = $currentTime;
-			foreach($jsonData->rows as $row) {
-				switch($type){
-					case "newData":
-						$db->syncNewData($row, $currentTime->format('U'));
-						break;
-					case "stats":
-						$hashkey = isset($_GET['hashkey']) ? $_GET['hashkey'] : NULL;
-						if($hashkey){
-							$currentTime = DateTime::createFromFormat('Y-m-d H:i:s', $row->timeData_format);
-							if(!is_a($currentTime, 'DateTime')){ $currentTime = new DateTime(); }
-							
-							$row = (object) array(
-								"hashkey"			=> $hashkey
-								,"totalUploaded"	=> $row->totalUploaded
-								,"ratio"			=> $row->ratio
-							);
-							
-							$result = $db->syncNewData($row, $currentTime->format('U'), false);
-						}
-						else { $error ='missingHashskey'; }
-						break;
-				}
-			}
-		}
-		else {
-			switch($type){
-				case "currentTorrent":
-					$onlyActive = isset($_POST['onlyActive']) ? $_POST['onlyActive'] : false;
-					$rows = $db->readTorrent($db->getBooleanForm($onlyActive));
-					//$rows = "test";
-					break;
-				case "stats":
-					$hashkey = isset($_POST['hashkey']) ? $_POST['hashkey'] : NULL;
-					if(!empty($hashkey)){
-						$rows = $db->readStats($hashkey);
-					}
-					break;
-			}
-		
-		}*/
-			/*if(property_exists($this->configData, $section)){
-				if(property_exists($this->configData->$section, $key)){
-					return $this->configData->$section->$key;
-				}
-			}*/
-		/*$section = 'deluge';
-		$key = 'host';
-		$test2 = array();
-		foreach($config->$section as $key2 => $value){ $test2[] = array('key' => $key2, 'value' => $value); }
-		$test3 = $config->$section;
-		$test = array(
-			'section ?' => property_exists($config, $section),
-			'section: ' => serialize($config->$section),
-			'section (foreach): ' => $test2,
-			
-			'key ?' => array_key_exists($key,$config->$section),
-			'key: ' => $test3[$key]
-		);*/
+
 
 	header('Cache-Control: no-cache, must-revalidate');
 	header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
 	header('Content-type: application/json');
 	echo json_encode($outputData);
-	//}	
 	
 ?>
