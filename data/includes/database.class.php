@@ -90,7 +90,7 @@ class database extends dbSqlite
 		}
 		return $data;
 	}
-	public function readTorrent($onlyActive = true){
+	public function getList($onlyActive = true){
 		$sql = "SELECT T.hashkey
 					,T.name
 					,T.timeAdded
@@ -136,6 +136,11 @@ class database extends dbSqlite
 			$result = $stmt->execute();
 			$currentTime = new DateTime();
 			$timezoneOffset = $currentTime->format('Z');
+			
+			// PHP datetime to SQLite 'datetime'
+			//$data[] = $currentTime->getTimestamp()-$timezoneOffset;
+			
+			
 			while($res = $result->fetchArray(SQLITE3_ASSOC)){
 				$tmp = $res;
 				
@@ -165,9 +170,9 @@ class database extends dbSqlite
 				$gapData = array(
 					'days'					=> 0,
 					'increasePercentage'	=> 0,
-					'uploaded'					=> 0,
-					'uploadedFormatted'			=> 0,
-					'uploaded24h'				=> 0,
+					'uploaded'				=> 0,
+					'uploadedFormatted'		=> 0,
+					'uploaded24h'			=> 0,
 					'uploaded24hFormatted'	=> 0
 				);
 				if(count($data[$tmp['hashkey']]['data'])>0){
