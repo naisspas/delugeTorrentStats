@@ -71,7 +71,7 @@
 				$outputData['updated'] = $deluge->syncData();
 				break;
 			case 'torrent:list': 
-				$outputData['rows'] = $db->getList($db->getBooleanForm($request->get('onlyActive')));
+				$outputData['rows'] = $db->readTorrent($db->getBooleanForm($request->get('onlyActive')));;
 				break;
 			case 'config:update':
 				$host = $request->get('host');

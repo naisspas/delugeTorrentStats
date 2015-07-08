@@ -90,118 +90,36 @@ class database extends dbSqlite
 		}
 		return $data;
 	}
-	public function getList($onlyActive = true){
-		$sql = "SELECT T.hashkey
-					,T.name
-					,T.timeAdded
-					,T.totalSize
-					,T.trackerHost
-					,TD.label
-					,TD.timeData
-					,TD.totalUploaded
-					,TD.ratio
-				FROM torrent T
-				INNER JOIN torrentData TD ON TD.hashkey = T.hashkey";
-		$sqlWhere = array("T.name IS NOT NULL");
-		$sqlOrder = array("T.name ASC","TD.timeData ASC");
+	public function readTorrent($onlyActive){
+		$sql = 'SELECT * FROM torrent';
 		if($onlyActive) {
-			$sqlWhere[] = "TD.timeData IN (
-					SELECT timeData
-					FROM torrentData
-					GROUP BY timeData
-					ORDER BY timeData DESC
-					LIMIT 10
-				)";
-			$sqlWhere[] = "T.hashkey IN (
-					SELECT hashkey
-					FROM torrentData
-					WHERE timeData = (
-						SELECT MAX(timeData)
-						FROM torrentData
-				   ) 
-				)";
-		}
-		if(count($sqlWhere)>0){
-			$sql .= " WHERE ".implode(' AND ',$sqlWhere);
-		}
-		if(count($sqlOrder)>0){
-			$sql .= " ORDER BY ".implode(', ',$sqlOrder);
+		
+			$stmt = $this->prepare('SELECT MAX(timeData) AS maxTimeData FROM torrentData');
+			$result = $stmt->execute();
+			$tmp = $result->fetchArray();
+			$maxTimeData = $tmp['maxTimeData'];
+			$stmt->close();
+			
+			$sql = "SELECT T.*
+				FROM torrent T
+					INNER JOIN torrentData TD ON TD.hashkey=T.hashkey AND TD.timeData = :maxTimeData
+			";
 		}
 		$stmt = $this->prepare($sql);
-
+		if($onlyActive) {
+			$stmt->bindValue(':maxTimeData', $maxTimeData, SQLITE3_INTEGER);
+		}
 		$data = array();
-		$timeData = array();
-		
 		if($stmt!==false) {
 			$result = $stmt->execute();
 			$currentTime = new DateTime();
 			$timezoneOffset = $currentTime->format('Z');
-			
-			// PHP datetime to SQLite 'datetime'
-			//$data[] = $currentTime->getTimestamp()-$timezoneOffset;
-			
-			
 			while($res = $result->fetchArray(SQLITE3_ASSOC)){
 				$tmp = $res;
-				
 				$ts = $tmp['timeAdded']+$timezoneOffset;
 				$date = new DateTime("@$ts");
-				$tmp['timeAdded'] = $date->format('Y-m-d H:i:s');
-				
-				if(!array_key_exists($tmp['hashkey'],$data)){
-					$data[$tmp['hashkey']] = array(
-						'haskey'		=> $tmp['hashkey'],
-						'name'			=> $tmp['name'],
-						'timeAdded'		=> $tmp['timeAdded'],
-						'totalSize'		=> $tmp['totalSize'],
-						'trackerHost'	=> $tmp['trackerHost'],
-						'label'			=> $tmp['label'],
-						'data'			=> array()
-					);
-				}
-
-				$ts = $tmp['timeData']+$timezoneOffset;
-				$date = new DateTime("@$ts");
-				
-				if(!array_key_exists($tmp['timeData'],$timeData)){
-					$timeData[$tmp['timeData']] = $date;
-				}
-				
-				$gapData = array(
-					'days'					=> 0,
-					'increasePercentage'	=> 0,
-					'uploaded'				=> 0,
-					'uploadedFormatted'		=> 0,
-					'uploaded24h'			=> 0,
-					'uploaded24hFormatted'	=> 0
-				);
-				if(count($data[$tmp['hashkey']]['data'])>0){
-					$lastData = end(array_values($data[$tmp['hashkey']]['data']));
-					$gapData['uploaded'] = $tmp['totalUploaded'] - $lastData['totalUploaded'];
-					if(!empty($lastData['totalUploaded'])){
-						$gapData['increasePercentage'] = round(($gapData['uploaded'] * 100) / $lastData['totalUploaded'],2);
-					}
-					$gapData['uploadedFormatted'] = $this->formatBytes(abs($gapData['uploaded']),3);
-
-					$dateLastData = $timeData[$lastData['timeData']];
-					
-					$dDiff = $date->diff($dateLastData);
-					$gapData['hours'] = $dDiff->days*24 + $dDiff->h;
-
-					if(!is_int($gapData['hours'])){ $gapData['hours'] = 0; }
-					if(!empty($gapData['hours'])){
-						$gapData['uploaded24h'] = ($gapData['uploaded'] / $gapData['hours'])*24;
-						$gapData['uploaded24hFormatted'] = $this->formatBytes(abs($gapData['uploaded24h']),3);
-					}
-				}
-				
-				$data[$tmp['hashkey']]['data'][] = array(
-					'timeData'					=> $tmp['timeData'],
-					'timeDataFormatted'			=> $date->format('Y-m-d H:i:s'),
-					'totalUploaded'				=> $tmp['totalUploaded'],
-					'ratio'						=> $tmp['ratio'],
-					'gapData'					=> $gapData
-				);
+				$tmp['timeAdded_format'] = $date->format('Y-m-d H:i:s');
+				$data[] = $tmp;
 			}
 			$result = $stmt->close();
 			return $data;
@@ -359,12 +277,6 @@ class database extends dbSqlite
 				}
 			}		
 		}
-	}
-	private function formatBytes($size, $precision = 2){
-		$base = log($size, 1024);
-		$suffixes = array('', 'k', 'M', 'G', 'T');   
-
-		return round(pow(1024, $base - floor($base)), $precision) . $suffixes[floor($base)];
 	}
 }
 ?>
